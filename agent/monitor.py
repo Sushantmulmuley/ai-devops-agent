@@ -2,6 +2,7 @@ import docker
 import psutil
 import time
 from datetime import datetime
+from claude_agent import diagnose_with_ai
 
 # Connect to Docker
 client = docker.from_env()
@@ -9,13 +10,13 @@ client = docker.from_env()
 # Settings
 CONTAINERS_TO_WATCH = ['web-app']
 CHECK_INTERVAL = 10  # check every 10 seconds
-CPU_THRESHOLD = 80   # alert if CPU > 80%
-MEMORY_THRESHOLD = 80  # alert if memory > 80%
+CPU_THRESHOLD = 80
+MEMORY_THRESHOLD = 80
 
 def get_container_status(name):
     try:
         container = client.containers.get(name)
-        return container.status  # running, exited, paused
+        return container.status
     except docker.errors.NotFound:
         return "not found"
 
@@ -38,22 +39,32 @@ def monitor():
     print(f"Watching containers: {CONTAINERS_TO_WATCH}")
     print("-" * 50)
 
+    # Track previous state to avoid duplicate alerts
+    previous_status = {}
+
     while True:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"\n[{timestamp}] Checking...")
 
-        # Check each container
         for name in CONTAINERS_TO_WATCH:
             status = get_container_status(name)
 
             if status == "running":
                 print(f"✅ {name} is RUNNING")
-            elif status == "not found":
-                print(f"❌ {name} NOT FOUND")
-            else:
+                previous_status[name] = "running"
+
+            elif status != previous_status.get(name):
+                # Status changed → alert + diagnose
                 print(f"⚠️  {name} is {status.upper()}")
-                print(f"    Last logs:")
-                print(get_container_logs(name))
+                logs = get_container_logs(name)
+                print(f"    Last logs:\n{logs}")
+
+                # Ask AI to diagnose
+                diagnosis = diagnose_with_ai(name, status, logs)
+                print(f"\n🤖 AI Diagnosis:\n{diagnosis}")
+                print("-" * 50)
+
+                previous_status[name] = status
 
         # Check system resources
         cpu, memory, disk = check_system_resources()
