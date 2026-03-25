@@ -2,7 +2,7 @@ import docker
 import psutil
 import time
 from datetime import datetime
-from claude_agent import diagnose_with_ai
+from claude_agent import run_agent
 
 # Connect to Docker
 client = docker.from_env()
@@ -60,7 +60,7 @@ def monitor():
                 print(f"    Last logs:\n{logs}")
 
                 # Ask AI to diagnose
-                diagnosis = diagnose_with_ai(name, status, logs)
+                diagnosis = run_agent(name, status, logs)
                 print(f"\n🤖 AI Diagnosis:\n{diagnosis}")
                 print("-" * 50)
 

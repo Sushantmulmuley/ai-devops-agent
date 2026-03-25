@@ -1,6 +1,12 @@
 import docker
+import requests
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 client = docker.from_env()
+SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
 
 def restart_container(container_name):
     """Restart a Docker container"""
@@ -25,9 +31,19 @@ def get_logs(container_name, lines=20):
         return f"❌ Could not fetch logs: {str(e)}"
 
 def send_alert(message):
-    """Send alert (prints for now, Slack comes later)"""
-    print(f"\n🚨 ALERT: {message}")
-    return f"Alert sent: {message}"
+    """Send real Slack alert"""
+    try:
+        payload = {
+            "text": f":rotating_light: *DevOps Agent Alert*\n{message}"
+        }
+        response = requests.post(SLACK_WEBHOOK_URL, json=payload)
+        if response.status_code == 200:
+            print(f"\n🚨 Slack alert sent!")
+            return "Slack alert sent successfully"
+        else:
+            return f"Failed to send Slack alert: {response.status_code}"
+    except Exception as e:
+        return f"❌ Slack error: {str(e)}"
 
 # Tool definitions for AI
 TOOLS = [
@@ -69,7 +85,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "send_alert",
-            "description": "Send an alert message about an incident",
+            "description": "Send a Slack alert message about an incident",
             "parameters": {
                 "type": "object",
                 "properties": {
